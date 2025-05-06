@@ -1,0 +1,654 @@
+---
+title:       "Group Project Analyses"
+author:
+  - name:         "Shrestha Bhandari"
+    affiliation:  "Group I"
+format:
+  html:
+    toc:          true
+    toc-location: "left"
+source:    visual
+df-print:  paged
+execute:
+  warning: false
+  message: false
+  echo:    false
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(gt)
+library(gtsummary)
+library(easystats)
+library(ggpubr)
+library(tibble)
+```
+
+## Publication-Ready Figures
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+Hypertension <- 
+  read_csv(
+  file =  "Prevalence of Hypertension.csv",
+  skip = 2
+)
+
+Obesity <- 
+  read_csv(
+  file = "Prevalence of Obesity.csv",
+  skip = 2
+)
+
+Income_Level <- 
+  read_csv(
+    file= "Income Level1.csv"
+  )
+
+Treatment <-
+  read_csv(
+    file = "Prevalence of Hypertension treatment.csv"
+  )
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+
+Hypertension1 <- Hypertension |>
+        select( 
+        Location,
+        Period,
+        Dim1,
+        FactValueForMeasure,
+        IndicatorCode
+        ) |>
+rename( Country = Location,
+        Year    = Period,
+        Gender  = Dim1,
+        Hyp_Ten_Measure = FactValueForMeasure
+        ) |>
+mutate(
+    Year   = as.factor(
+    Year
+      ),
+    Gender = as.factor( 
+      Gender
+      ),
+    Hyp_Ten_Measure = as.double(
+      Hyp_Ten_Measure),
+    IndicatorCode   = as.factor(
+      IndicatorCode
+    )
+) |>
+
+filter(
+IndicatorCode == "NCD_HYP_PREVALENCE_A"
+)
+
+
+Obesity1 <- Obesity |> 
+  select( 
+        Location,
+        Period,
+        Dim1,
+        FactValueForMeasure,
+        IndicatorCode
+        ) |>
+rename( 
+        Country = Location,
+        Year    = Period,
+        Gender  = Dim1,
+        Obes_Ten_Measure = FactValueForMeasure
+        ) |>
+mutate(
+      Year   = as.factor(
+      Year
+      ),
+    Gender = as.factor( 
+      Gender
+      ),
+    Obes_Ten_Measure = as.double(
+      Obes_Ten_Measure
+      ),
+    IndicatorCode   = as.factor(
+      IndicatorCode
+    )
+) |> 
+  filter (
+    Year %in% c(1990:2019
+                )
+    )
+
+Income_Level1 <- Income_Level |>
+  rename(
+  Country = Location
+  )
+
+Treatment1 <- 
+  Treatment |>
+  select( 
+        Location,
+        Period,
+        Dim1,
+        FactValueNumeric,
+        IndicatorCode
+) |>
+  rename( 
+        Country           = Location,
+        Year              = Period,
+        Gender            = Dim1,
+        Treatment_Measure = FactValueNumeric
+) |>
+mutate(
+    Year               = as.factor(Year),
+    Gender             = as.factor(Gender),
+    Treatment_Measure  = as.double(Treatment_Measure),
+    IndicatorCode      = as.factor(IndicatorCode)
+) |>
+
+filter(
+  IndicatorCode == "NCD_HYP_TREATMENT_A"
+)
+
+combined_full <- 
+  inner_join(
+  Hypertension1, 
+  Obesity1, 
+  by = c("Country","Year","Gender")
+)
+
+combine_full2 <- 
+  inner_join(
+  combined_full, 
+  Income_Level1, 
+  by = c("Country")
+) 
+
+
+combine_full3 <- 
+  inner_join(
+  combine_full2,
+  Treatment1,
+  by = c("Country","Year","Gender"
+  ) 
+)
+
+```
+
+### Univariate Analyses
+
+**Primary Analysis**
+
+```{r}
+#| label: fig-Histogramgraph
+#| fig-cap: "Histogram Graph"
+#| echo: false
+#| warning: false
+#| message: false
+
+
+Hypertension1|> 
+  filter(
+     Hyp_Ten_Measure >= 40, 
+     Year   %in% c(1990:2019),
+     Gender %in% c("Both sexes"
+  )
+) |>
+  ggplot(
+     mapping = aes(
+     x       = Hyp_Ten_Measure,
+  
+  )
+) + 
+  geom_histogram(
+     fill  = "indianred3",
+     color = "white"
+     
+) +
+  
+  labs(
+     x     = "Hypertesnsion Rate",
+     y     = "Count",
+     title = "Hypertension Rate greater than 40 percent,Both Genders,Year(1990 to 2019)" 
+  )
+
+```
+
+**Secondary Analysis**
+
+```{r}
+#| label: tbl-exercise-one
+#| tbl-cap: "Summary Table"
+#| warning: false
+#| message: false
+
+Hypertension1 |> 
+  filter(
+  Hyp_Ten_Measure >= 40, 
+  Year   %in% c(1990:2019),
+  Gender %in% c("Both sexes"
+  )
+  ) |>
+  group_by(Gender) |>
+  summarize(
+    mean     = mean(Hyp_Ten_Measure),
+    sd       = sd(Hyp_Ten_Measure),
+    skewness = skewness(Hyp_Ten_Measure)[[1]],
+    kurtosis = kurtosis (Hyp_Ten_Measure)[[1]],
+    Count    = n(),
+    .groups  = "drop"
+    
+  ) |>
+  gt() |>
+  tab_header(
+    title    = md("**Hypertension Rate greater than 40 percent, Both Genders**"),
+    subtitle = md("Summary Statistics by Year")
+  ) |>
+  cols_label(
+    mean     = md("**Mean**"),
+    sd       = md("**SD**"),
+    skewness = md("**&gamma;<sub>1</sub>**"),
+    kurtosis = md("**&gamma;<sub>2</sub>**"),
+    Count    = md("**No. of Cases**")
+  ) |>
+  fmt_number(
+    decimals = 2
+  ) |>
+  tab_source_note(
+    source_note = md("Data from 'Prevalence of Hypertension' dataset (**WHO**).")
+  )
+
+
+```
+
+@fig-Histogramgraph displays the distribution of hypertension rates greater than 40% across both genders for the period 1990 to 2019. The x-axis represents the hypertension rate, while the y-axis shows the count or frequency of countries. The histogram reveals a right-skewed distribution, with the majority of countries clustering around lower hypertension rates between 40% and 45%. As the hypertension rate increases, there is a gradual decline in the number of countries, forming a long tail towards the higher end of the distribution. A small number of countries exhibit hypertension rates above 55%, representing the extreme values in the data set.
+
+@tbl-exercise-one Table provides summary statistics for hypertension rates greater than 40% across both genders for the period 1990 to 2019. The mean hypertension rate is 44.32% with a standard deviation of 3.25%, indicating moderate variability around the mean. The skewness value of 0.98 suggests a right-skewed distribution, while the kurtosis of 0.93 implies a slightly flatter distribution compared to a normal curve. The table is based on a substantial sample size of 1,949 cases or country-year observations from the World Health Organization's 'Prevalence of Hypertension' dataset.
+
+### Bivariate Analyses
+
+```{r}
+#| label: fig-Scatterplot
+#| fig-cap: "Scatter Plot"
+#| echo: false
+#| warning: false
+#| message: false
+
+combine_full2|>
+   filter( 
+   Year   %in% c("1990","2000","2019"),
+   Gender %in% c("Both sexes")
+     
+)|>
+ggplot(
+  mapping = aes(
+  x       = Obes_Ten_Measure,
+  y       = Hyp_Ten_Measure)
+  
+) +
+  geom_point() +
+  xlim(0,70)+
+  ylim(0,70)+
+  stat_cor(
+  method  = "pearson", 
+  label.x = 0, 
+  label.y = 
+) +
+  
+  
+  geom_smooth(
+  method  = "lm"
+) +
+  
+  labs(
+    x     = "Obesity Rate",
+    y     = "Hypertension Rate" ,
+    title = "Observation of Hypertension & Obesity Rate,Both Gender,Year 1990, 2000,2019"
+)
+  
+
+```
+@fig-Scatterplot The plot depicts the relationship between obesity and hypertension rates across three decades (1990, 2000, and 2019) for both sexes. A noticeable upward trend in both variables suggests a positive correlation, indicating that as the obesity rate increases, so does the hypertension rate. This correlation underscores the importance of addressing obesity as a potential risk factor for hypertension and other cardiovascular diseases. The scattered data points reveal variability in the strength of this relationship across different years and genders, emphasizing the need for targeted public health interventions to mitigate the rising prevalence of these chronic conditions.
+
+### Multivariate Analyses
+
+```{r}
+#| label: fig-Multivariateplot
+#| ig-cap: "MultiVariate Plot"
+#| echo: false
+#| warning: false
+#| message: false
+
+combine_full2|>
+  filter( 
+  Hyp_Ten_Measure > 40,
+  Gender %in% c("Female","Male")
+           
+  ) |>
+  ggplot(mapping = 
+    aes(
+    x= Hyp_Ten_Measure
+    )
+    ) +
+  geom_histogram(
+    aes(
+    fill  = Gender),  
+    color = "white",    
+    alpha = 0.6
+    
+ ) +
+  facet_grid(Gender ~ Label
+ ) + 
+  labs(
+    title = "Hypertension Rate greater than 40 percent,by country's status",
+    x     = "Hypertension Rate",
+    y     = "Frequency"
+ )
+
+```
+
+@fig-Multivariateplot depicts the frequency of hypertension rates exceeding 40% across income categories (high, low, and middle) and genders (female and male). It highlights disparities in hypertension prevalence, with lower frequencies observed in high-income populations and higher frequencies in low-income communities. The distribution in middle-income countries falls between these extremes. This visualization underscores the importance of targeted interventions to address hypertension and improve health outcomes across different socioeconomic contexts. \## Publication-Ready Tables
+
+### Contingency Table
+
+```{r}
+#| label: tbl-contingency-r-by-c
+#| tbl-cap: "Prevalence of Treatment"
+#| echo: false
+#| warning: false
+#| message: false
+
+combine_full3|>
+  select(Treatment_Measure, Label,Gender) |>
+  filter(Gender %in% 
+           c("Both sexes"
+        )
+    ) |>
+   mutate(
+    Treatment_Measure = case_when(
+          Treatment_Measure <=20  ~ "<20%",
+          Treatment_Measure > 20 & Treatment_Measure <= 40 ~ "20%-40%",
+          Treatment_Measure > 40 & Treatment_Measure <= 50 ~ "41%-50%",
+          Treatment_Measure > 50 & Treatment_Measure <= 60 ~ "51%-60%",
+          Treatment_Measure > 60 & Treatment_Measure <= 70 ~ "61%-70%",
+          Treatment_Measure > 70 ~ "70%+"
+  ),
+  Treatment_Measure = factor(
+    x      = Treatment_Measure,
+    levels = c("<20%","20%-40%","41%-50%","51%-60%","61%-70%","70%+")
+  ),
+  
+   Label = case_when(
+     Label == "Low Income" ~"Low",
+     Label == "Middle Income"~"Middle",
+     Label == "High Income" ~ "High"
+   ),
+  
+  Label    = factor(
+    x      = Label,
+    levels = c("Low","Middle","High")
+    )
+  
+  )|>
+  
+  tbl_cross(
+    row   = Treatment_Measure,
+    col   = Label,
+    label = list(
+    Treatment_Measure ~ "Treamtment Level (in percent)",
+    Label ~ "Country by Income Status"
+    ),
+    percent = "cell"
+  ) |>
+  
+  bold_labels() |>
+  
+  italicize_levels() |>
+  
+  as_gt() |>
+  
+  tab_header(
+    title    = md("**Prevalence of Treatment**")
+    
+  ) |>
+  tab_source_note(
+    source_note = md("Data from `Prevalence of Treatment` dataset (from **WHO** ).")
+  )
+  
+
+```
+
+### Secondary Analysis
+
+```{r}
+#| label: fig-heatmap
+#| fig-cap: "Heat Map"
+
+combine_full3|>
+  select(
+    Treatment_Measure, 
+    Label,
+    Gender
+    ) |>
+  filter(
+    Gender %in% c("Both sexes")
+    ) |>
+   mutate(
+    Treatment_Measure = case_when(
+          Treatment_Measure <=20  ~ "<20%",
+          Treatment_Measure > 20 & Treatment_Measure <= 40 ~ "20%-40%",
+          Treatment_Measure > 40 & Treatment_Measure <= 50 ~ "41%-50%",
+          Treatment_Measure > 50 & Treatment_Measure <= 60 ~ "51%-60%",
+          Treatment_Measure > 60 & Treatment_Measure <= 70 ~ "61%-70%",
+          Treatment_Measure > 70 ~ "70%+"
+  ),
+  Treatment_Measure = factor(
+    x      = Treatment_Measure,
+    levels = c("<20%","20%-40%","41%-50%","51%-60%","61%-70%","70%+")
+  ),
+  
+   Label   = case_when(
+     Label == "Low Income" ~"Low",
+     Label == "Middle Income"~"Middle",
+     Label == "High Income" ~ "High"
+   ),
+  
+   Label   = factor(
+    x      = Label,
+    levels = c("Low","Middle","High")
+    )
+  
+  )|>
+  ggplot(
+    mapping = aes(
+      x     = Label,
+      y     = Treatment_Measure,
+      fill  = Treatment_Measure
+    )
+    )+
+  geom_tile()+
+  
+  coord_fixed() +
+  labs( 
+      x    = "Income Level",
+      y    = "Prevalence of Treatment",
+      fill = "Measure"
+    )
+
+```
+
+@tbl-contingency-r-by-c The table presents the distribution of treatment levels for hypertension across low, middle, and high-income countries. A significant proportion (29%) of countries have treatment levels below 20%, with a higher prevalence in low (11%) and middle-income (18%) nations compared to high-income countries (0.8%). Middle-income countries show the highest percentage (26%) in the 20%-40% treatment range, while high and middle-income countries have similar shares (around 8%) in the 41%-50% range. Higher treatment levels above 50% are more common in high-income countries compared to middle and low-income nations.
+
+### Summary Table A
+
+```{r}
+#| label: tbl-summary-A
+#| tbl-cap: "Prevalence of Hypertension"
+#| echo: false
+#| warning: false
+#| message: false
+
+combine_full2 |> 
+  mutate ( 
+    Lable = as.factor(Label
+    )
+)|>
+  select(
+    Gender,Label,Hyp_Ten_Measure
+  ) |>
+  group_by(Gender,Label) |>
+  summarize(
+    mean     = mean(Hyp_Ten_Measure),
+    sd       = sd(Hyp_Ten_Measure),
+    skewness = skewness(Hyp_Ten_Measure)[[1]],
+    kurtosis = kurtosis (Hyp_Ten_Measure)[[1]],
+    .groups  = "drop"
+    
+  ) |>
+  gt(
+    groupname_col = "Gender",
+    rowname_col   = "Label"
+  ) |>
+  fmt_number(decimals = 2)|>
+  tab_style(
+    style = list(
+      cell_text(weight = "bold"),
+      cell_fill(color  = "#F2F2F2")
+    ),
+    location = cells_row_groups(groups = everything())
+  ) |>
+  cols_label(
+    mean     = md("**Mean**"),
+    sd       = md("**SD**"),
+    skewness = md("**&gamma;<sub>1</sub>**"),
+    kurtosis = md("**&gamma;<sub>2</sub>**")
+  ) |>
+  
+  tab_stub_indent(
+    rows   = everything(),
+    indent = 2
+    
+  ) |>
+  
+  tab_footnote (
+   footnote    = "arithmetic mean",
+  locations    = cells_column_labels(
+    columns    = c(mean)
+  )
+) |>
+  
+  tab_footnote (
+   footnote    = "standard deviation",
+  locations    = cells_column_labels(
+    columns    = c(sd)
+  )
+) |>
+  
+  tab_footnote (
+   footnote    = "skewness",
+  locations    = cells_column_labels(
+    columns    = c(skewness)
+  )
+) |>
+  
+  tab_footnote (
+   footnote    = "kurtosis",
+  locations    = cells_column_labels(
+    columns    = c(kurtosis)
+  )
+) |>
+  
+  tab_header(
+    title    = md("**Hypertension Rate**"),
+    subtitle = md("Time Period (1990-2019)")
+  ) |>
+  
+   tab_source_note(
+    source_note = md("Data from 'Prevalence of Hypertension' dataset (WHO).")
+  )
+ 
+
+  
+
+```
+
+@tbl-summary-A The table presents hypertension rates across income groups and genders for the period 1990-2019. For both sexes combined, high-income countries have the highest mean hypertension rate of 38.61%, while low-income countries have the lowest at 36.67%. However, for females, the trend is reversed, with low-income countries showing the highest mean rate of 37.36%. For males, high-income countries again exhibit the highest mean rate at 42.19%. The data displays varying patterns of skewness and kurtosis across the different groups, indicating potential distributional differences in hypertension prevalence.
+
+### Summary Table B
+
+```{r}
+#| label: tbl-summary-B
+#| tbl-cap: "Hypertension Rate,its Treatment Rate and Obesity Rate"
+#| echo: false
+#| warning: false
+#| message: false
+
+
+combine_full3 |>
+  select (
+    -Country,
+    -Year,
+    -IndicatorCode.x,
+    -IndicatorCode.y,
+    -IndicatorCode) |>
+  
+  tbl_summary(
+    by                = Label,
+    label             = list(
+    Label             ~ "Country by Income Status",
+    Gender            ~ "Gender",
+    Hyp_Ten_Measure   ~ "Hypertension Rate",
+    Treatment_Measure ~ "Treatment Rate",
+    Obes_Ten_Measure  ~ "Obesity Rate"
+    
+    ),
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits   =list(
+      all_continuous()  ~ 1,
+      all_categorical() ~ 0
+    )
+  ) |>
+  bold_labels()|>
+  italicize_levels() |>
+  
+  as_gt() |>
+  
+  tab_header(
+    title    = md("**Prevalence of Hypertension and it's Treatment**")
+    
+  ) |>
+  tab_source_note(
+    source_note = md("dataset (from **WHO** ).")
+  )
+```
+
+@tbl-summary-B This table presents various health-related characteristics across three income groups - high income, low income, and middle income. The gender distribution is equal (33%) across all income groups. There is a notable difference in hypertension rates, with the high income group having the highest rate of 38.5% compared to 36.6% for low income and 37.5% for middle income. Obesity rates show a more significant disparity, with the high income group having an obesity rate of 20.1%, much higher than the low income group's 5.0% and the middle income group's 15.6%. The treatment rate follows a similar pattern, with the high income group having the highest rate of 41.3%, compared to 14.4% for low income and 28.5% for middle income.
+
+## References
+
+World Health Organization.Prevalence of hypertension among adults aged 30-79 years \[Dataset\].https://www.who.int/data/gho/data/indicators/indicator-details/GHO/prevalence-of-hypertension-among-adults-aged-30-79-years
+
+World Health Organization.Prevalence of obesity among adults, BMI \>= 30 (age-standardized estimate) (%) \[Dataset\]. https://www.who.int/data/gho/data/indicators/indicator-details/GHO/prevalence-of-obesity-among-adults-bmi--30-(age-standardized-estimate
+
+Wickham, H., François, R., Lang, L., Wickham, M., Rstudio Team (2017). tidyverse: Easily Install and Load tidyverse Packages. R package version 1.3.0. https://www.tidyverse.org/packages/
+
+Wickham, H., & MacDonald, G. (2020). tidymodels: A collection of packages for modeling and data science. R package version 0.1.2. https://tidymodels.tidymodels.org/
+
+Sengers, J. (2020). gt: Easy tables for R Markdown. R package version 0.3.0. https://gt.rstudio.com/
+
+Sengers, J., & Legoeverd, F. (2020). gtsummary: R package for making summary tables. R package version 1.1.1. https://cran.r-project.org/package=gtsummary
+
+DAve (2021). easystats: Modern replacements for base R summary statistics. R package version 1.3.3. https://cran.r-project.org/package=easystats
+
+Kassambara, A., & Mundt, F. (2020). ggpubr: ‘ggplot2’ Based R Packages for Statistical Graphics. R package version 0.4.0. https://cran.r-project.org/package=ggpubr
